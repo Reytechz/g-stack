@@ -167,9 +167,12 @@
             <label for="input-client-secret">Google Client Secret</label>
             <input type="password" id="input-client-secret" placeholder="Google OAuth Client Secret" />
           </div>
-          <div class="form-group-checkbox">
-            <input type="checkbox" id="input-startup" />
-            <label for="input-startup">Run on Startup (Minimized to Tray)</label>
+          <div class="form-group-switch">
+            <span class="switch-label">Run on Startup (Minimized to Tray)</span>
+            <label class="switch">
+              <input type="checkbox" id="input-startup" />
+              <span class="slider"></span>
+            </label>
           </div>
           <div class="settings-actions">
             <button class="btn btn-secondary" id="btn-cancel-settings">Cancel</button>
