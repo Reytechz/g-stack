@@ -4,10 +4,59 @@
   "description": "G-Stack Multi-Account Cloud Storage Pooler GUI",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder"
   },
-  "dependencies": {},
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  },
   "devDependencies": {
-    "electron": "^31.0.0"
+    "electron": "^31.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.almerhal76.gstack",
+    "productName": "G-Stack",
+    "copyright": "Copyright © 2026 almerhal76",
+    "directories": {
+      "output": "dist"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "almerhal76",
+      "repo": "g-stack"
+    },
+    "files": [
+      "**/*",
+      "!gstack",
+      "!gstack.exe",
+      "!gstack.db",
+      "!config.json",
+      "!temp/**/*",
+      "!gstack_logo*",
+      "!.git/**/*"
+    ],
+    "extraResources": [
+      "gstack",
+      "gstack.exe"
+    ],
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Utility",
+      "icon": "icon.png"
+    },
+    "win": {
+      "target": "nsis",
+      "icon": "icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
   }
 }

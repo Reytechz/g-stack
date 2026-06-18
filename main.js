@@ -1,4 +1,5 @@
-const { app, BrowserWindow, Tray, Menu, nativeImage, shell, ipcMain } = require('electron');
+const { app, BrowserWindow, Tray, Menu, nativeImage, shell, ipcMain, dialog } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const { spawn } = require('child_process');
 const path = require('path');
 const fs = require('fs');
@@ -10,6 +11,26 @@ let mainWindow;
 let tray;
 let gstackProcess;
 let isQuitting = false;
+
+// Get data directory: project root in dev, appData folder in prod
+const dataDir = app.isPackaged ? app.getPath('userData') : __dirname;
+const configPath = path.join(dataDir, 'config.json');
+
+// Ensure writable config exists in prod by copying from package if missing
+function ensureConfigExists() {
+  if (app.isPackaged && !fs.existsSync(configPath)) {
+    try {
+      const defaultPackagedConfig = path.join(__dirname, 'config.json');
+      if (fs.existsSync(defaultPackagedConfig)) {
+        fs.mkdirSync(dataDir, { recursive: true });
+        fs.copyFileSync(defaultPackagedConfig, configPath);
+        console.log(`[App] Copied default config to user data directory: ${configPath}`);
+      }
+    } catch (err) {
+      console.error('Failed to copy default config:', err);
+    }
+  }
+}
 
 // Base64 green cloud icon (16x16) for system tray
 const iconBase64 = 'iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAm0lEQVQ4T2NkoBAwUqifAWJgRFN8H4j/M2BTI8rA+B8hG59afA5gYGBg+M8w9T8DAwMDiAYpBtVgYAQSDAwMDL9hCrCpwWYALq/A/AuyApsBqLwCDUDlFWgAKq9AA1B5BRqAyivQAFS1oQGoeh/oAKqeR2D+x1C5e+NzAAMDw3+Y/A8kGlENM2AyABv4h2oIMh2i7Bco2gBqjR4wE24dRwAAAABJRU5ErkJggg==';
@@ -24,13 +45,30 @@ function writeIconFile(filePath) {
 }
 
 function startBackend() {
-  const binaryName = process.platform === 'win32' ? 'gstack.exe' : './gstack';
-  const binaryPath = path.join(__dirname, binaryName);
+  const binaryName = process.platform === 'win32' ? 'gstack.exe' : 'gstack';
+  let binaryPath;
 
-  console.log(`Starting backend daemon: ${binaryPath}`);
+  if (app.isPackaged) {
+    binaryPath = path.join(process.resourcesPath, binaryName);
+  } else {
+    binaryPath = path.join(__dirname, process.platform === 'win32' ? 'gstack.exe' : './gstack');
+  }
+
+  // Set executable permissions on non-Windows platforms in production
+  if (process.platform !== 'win32') {
+    try {
+      if (fs.existsSync(binaryPath)) {
+        fs.chmodSync(binaryPath, '755');
+      }
+    } catch (err) {
+      console.error('Failed to set executable permissions on daemon:', err);
+    }
+  }
+
+  console.log(`Starting backend daemon: ${binaryPath} in working dir: ${dataDir}`);
   
   gstackProcess = spawn(binaryPath, [], {
-    cwd: __dirname,
+    cwd: dataDir,
     env: { ...process.env }
   });
 
@@ -92,6 +130,43 @@ function createWindow() {
   });
 }
 
+function setupAutoUpdater() {
+  // Check for updates on startup
+  console.log('[Updater] Checking for updates...');
+  autoUpdater.checkForUpdatesAndNotify();
+
+  // Check for updates every 2 hours
+  setInterval(() => {
+    autoUpdater.checkForUpdatesAndNotify();
+  }, 2 * 60 * 60 * 1000);
+
+  autoUpdater.on('update-available', () => {
+    console.log('[Updater] Update available.');
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    console.log('[Updater] Update downloaded:', info.version);
+    dialog.showMessageBox(mainWindow, {
+      type: 'info',
+      title: 'Update Available',
+      message: `A new version (${info.version}) of G-Stack has been downloaded.`,
+      detail: 'Would you like to restart the application to apply the update now?',
+      buttons: ['Restart and Install', 'Later'],
+      defaultId: 0,
+      cancelId: 1
+    }).then((result) => {
+      if (result.response === 0) {
+        isQuitting = true;
+        autoUpdater.quitAndInstall();
+      }
+    });
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.error('[Updater] Error checking for updates:', err);
+  });
+}
+
 function createTray() {
   const iconPath = path.join(__dirname, 'icon.png');
   if (!fs.existsSync(iconPath)) {
@@ -146,6 +221,8 @@ if (!gotTheLock) {
   });
 
   app.whenReady().then(() => {
+    ensureConfigExists();
+
     const iconPath = path.join(__dirname, 'icon.png');
     if (!fs.existsSync(iconPath)) {
       writeIconFile(iconPath);
@@ -155,6 +232,7 @@ if (!gotTheLock) {
     startBackend();
     createWindow();
     createTray();
+    setupAutoUpdater();
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) {
@@ -203,7 +281,6 @@ function showMountDialog(url) {
   let addr = 'localhost:8080';
   let password = 'admin';
   try {
-    const configPath = path.join(__dirname, 'config.json');
     if (fs.existsSync(configPath)) {
       const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
       username = config.username || username;
@@ -325,7 +402,6 @@ function restartBackend() {
 // IPC handler to fetch config
 ipcMain.handle('get-config', async () => {
   try {
-    const configPath = path.join(__dirname, 'config.json');
     if (fs.existsSync(configPath)) {
       const content = fs.readFileSync(configPath, 'utf8');
       return JSON.parse(content);
@@ -343,7 +419,6 @@ ipcMain.handle('get-config', async () => {
 // IPC handler to save config and restart Go daemon
 ipcMain.handle('save-config', async (event, newConfig) => {
   try {
-    const configPath = path.join(__dirname, 'config.json');
     let existingConfig = {};
     if (fs.existsSync(configPath)) {
       existingConfig = JSON.parse(fs.readFileSync(configPath, 'utf8'));

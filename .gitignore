@@ -12,8 +12,9 @@ gstack-gui
 # Configuration and secrets
 config.json
 
-# Dependencies
+# Dependencies and build outputs
 node_modules/
+dist/
 
 # Local temp files and logs
 temp/
