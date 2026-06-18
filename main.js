@@ -175,7 +175,7 @@ function createTray() {
 
   const image = nativeImage.createFromPath(iconPath);
   tray = new Tray(image);
-  tray.setToolTip('G-Stack Cloud Pooler');
+  tray.setToolTip('G-Stack');
 
   const contextMenu = Menu.buildFromTemplate([
     {
