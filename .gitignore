@@ -1,0 +1,24 @@
+# Binaries and executables
+gstack
+gstack.exe
+gstack-gui
+
+# SQLite databases
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
+
+# Configuration and secrets
+config.json
+
+# Dependencies
+node_modules/
+
+# Local temp files and logs
+temp/
+*.log
+
+# Operating system files
+.DS_Store
+Thumbs.db

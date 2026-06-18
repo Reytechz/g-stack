@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>G-Stack Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <div class="app-container">
+    
+    <!-- Header -->
+    <header class="app-header">
+      <div class="logo-area">
+        <img src="icon.png" class="logo-img" alt="G-Stack Logo" />
+        <div class="logo-text">
+          <h1>G-Stack</h1>
+          <p>Multi-Account Drive Pooler</p>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="connection-status">
+          <span class="status-indicator online"></span>
+          <span id="daemon-status-text">Daemon Active</span>
+        </div>
+        <button id="btn-settings" class="btn-settings-icon" title="Settings">
+          <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </button>
+        <button id="btn-close-tray" class="btn-close-icon" title="Minimize G-Stack to Tray">
+          <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Main Grid -->
+    <main class="dashboard-grid">
+      
+      <!-- Left: Storage Circle Indicator -->
+      <section class="card pool-card">
+        <h2>Aggregate Storage Pool</h2>
+        <div class="storage-chart-container">
+          <svg class="progress-ring" width="200" height="200">
+            <circle class="progress-ring__background" stroke="#1d2030" stroke-width="12" fill="transparent" r="85" cx="100" cy="100"/>
+            <circle class="progress-ring__circle" id="pool-progress-ring" stroke="url(#pool-gradient)" stroke-width="12" stroke-linecap="round" fill="transparent" r="85" cx="100" cy="100"/>
+            <defs>
+              <linearGradient id="pool-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stop-color="#00f2fe"/>
+                <stop offset="100%" stop-color="#4facfe"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div class="chart-label">
+            <span class="percentage" id="pool-percentage">0%</span>
+            <span class="subtitle">Used</span>
+          </div>
+        </div>
+
+        <div class="pool-details">
+          <div class="detail-row">
+            <span class="label">Total Pool Capacity</span>
+            <span class="value" id="pool-capacity">0 GB</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Total Space Used</span>
+            <span class="value" id="pool-used">0 GB</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Available Free Space</span>
+            <span class="value text-glow-green" id="pool-free">0 GB</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right: Connected Accounts & Actions -->
+      <div class="right-column">
+        
+        <!-- Connected Accounts List -->
+        <section class="card accounts-card">
+          <div class="card-header">
+            <h2>Connected Accounts</h2>
+            <span class="badge" id="accounts-count">0 Connected</span>
+          </div>
+          
+          <div class="accounts-list" id="accounts-list-container">
+            <!-- Dynamic list items will be injected here -->
+            <div class="empty-state">
+              <p>No Google Drive accounts connected yet.</p>
+              <p class="sub-empty">Connect at least one account to start pooling storage space.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- Actions panel -->
+        <section class="card actions-card">
+          <h2>Controls & Mounting</h2>
+          <div class="actions-grid">
+            <button class="btn btn-primary" id="btn-mount-drive">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M5 19a2 2 0 01-2-2V7a2 2 0 012-2h4l2 2h4a2 2 0 012 2v1M5 19h14a2 2 0 002-2v-5M5 19v-2m16 2h-2m2-2h-2M9 13l3 3m0 0l3-3m-3 3V10"/></svg>
+              Mount & Open Drive
+            </button>
+            <button class="btn btn-secondary" id="btn-copy-webdav">
+              <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m-9 5h7m-3-3v6"/></svg>
+              Copy WebDAV Address
+            </button>
+          </div>
+
+          <div class="webdav-info-box">
+            <span class="info-label">Local Mount Address:</span>
+            <code id="webdav-url">http://localhost:8080/</code>
+            <span class="info-creds">
+              Username: <strong id="creds-username">admin</strong> | Password: <strong id="creds-password">••••••••</strong>
+              <button id="btn-toggle-password-view" class="btn-eye-toggle" title="Show/Hide Password">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+              </button>
+            </span>
+          </div>
+        </section>
+
+      </div>
+    </main>
+
+    <!-- Footer Status Bar -->
+    <footer class="app-footer">
+      <div class="footer-item">
+        <span>VFS Index Database:</span>
+        <strong id="db-status-text">gstack.db (Active)</strong>
+      </div>
+      <div class="footer-item" id="refresh-status-container">
+        <span class="spinner" id="refresh-spinner"></span>
+        <span id="refresh-time">Synced just now</span>
+      </div>
+    </footer>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>G-Stack Settings</h2>
+          <button id="btn-close-settings" class="btn-close-icon" title="Close Settings">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label for="input-addr">Daemon Address / Port</label>
+            <input type="text" id="input-addr" placeholder="localhost:8080" />
+            <span class="input-desc">WebDAV server binding address. Changing this requires restarting the engine.</span>
+          </div>
+          <div class="form-group-row">
+            <div class="form-group">
+              <label for="input-username">WebDAV Username</label>
+              <input type="text" id="input-username" placeholder="admin" />
+            </div>
+            <div class="form-group">
+              <label for="input-password">WebDAV Password</label>
+              <input type="password" id="input-password" placeholder="admin" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="input-client-id">Google Client ID</label>
+            <input type="text" id="input-client-id" placeholder="Google OAuth Client ID" />
+          </div>
+          <div class="form-group">
+            <label for="input-client-secret">Google Client Secret</label>
+            <input type="password" id="input-client-secret" placeholder="Google OAuth Client Secret" />
+          </div>
+          <div class="settings-actions">
+            <button class="btn btn-secondary" id="btn-cancel-settings">Cancel</button>
+            <button class="btn btn-primary" id="btn-save-settings">Save & Restart Daemon</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>
