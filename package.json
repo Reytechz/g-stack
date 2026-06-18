@@ -2,6 +2,7 @@
   "name": "g-stack-gui",
   "version": "1.0.0",
   "description": "G-Stack Multi-Account Cloud Storage Pooler GUI",
+  "author": "almerhal76 <almerhal76@gmail.com>",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
