@@ -111,7 +111,11 @@ function createWindow() {
 
   // Prevent flash during load
   mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
+    if (!process.argv.includes('--hidden')) {
+      mainWindow.show();
+    } else {
+      console.log('[App] Started in hidden mode (minimized to tray)');
+    }
   });
 
   // Intercept links and open in external system browser
@@ -457,6 +461,74 @@ ipcMain.handle('save-config', async (event, newConfig) => {
     return { success: false, error: err.message };
   }
 });
+
+// IPC handler to check if Run on Startup is enabled
+ipcMain.handle('get-startup-status', async () => {
+  if (process.platform === 'linux') {
+    const autostartDir = path.join(app.getPath('home'), '.config', 'autostart');
+    const autostartFile = path.join(autostartDir, 'g-stack.desktop');
+    return fs.existsSync(autostartFile);
+  } else {
+    try {
+      return app.getLoginItemSettings().openAtLogin;
+    } catch (err) {
+      console.error('Failed to get login item settings:', err);
+      return false;
+    }
+  }
+});
+
+// IPC handler to enable/disable Run on Startup
+ipcMain.handle('set-startup-status', async (event, enabled) => {
+  if (process.platform === 'linux') {
+    const autostartDir = path.join(app.getPath('home'), '.config', 'autostart');
+    const autostartFile = path.join(autostartDir, 'g-stack.desktop');
+    try {
+      if (enabled) {
+        if (!fs.existsSync(autostartDir)) {
+          fs.mkdirSync(autostartDir, { recursive: true });
+        }
+        let execPath = process.execPath;
+        if (process.env.APPIMAGE) {
+          execPath = process.env.APPIMAGE;
+        }
+        const content = `[Desktop Entry]
+Type=Application
+Name=G-Stack
+Exec="${execPath}" --hidden
+Icon=g-stack
+Comment=Start G-Stack on login
+X-GNOME-Autostart-enabled=true
+`;
+        fs.writeFileSync(autostartFile, content, 'utf8');
+        console.log(`[Autostart] Enabled startup on Linux. Created entry at: ${autostartFile}`);
+      } else {
+        if (fs.existsSync(autostartFile)) {
+          fs.unlinkSync(autostartFile);
+          console.log(`[Autostart] Disabled startup on Linux. Removed entry at: ${autostartFile}`);
+        }
+      }
+      return { success: true };
+    } catch (err) {
+      console.error('[Autostart] Failed to update Linux autostart file:', err);
+      return { success: false, error: err.message };
+    }
+  } else {
+    try {
+      app.setLoginItemSettings({
+        openAtLogin: enabled,
+        path: process.execPath,
+        args: ['--hidden']
+      });
+      console.log(`[Autostart] Updated Windows/macOS startup to: ${enabled}`);
+      return { success: true };
+    } catch (err) {
+      console.error('[Autostart] Failed to set Windows/macOS login settings:', err);
+      return { success: false, error: err.message };
+    }
+  }
+});
+
 
 
 

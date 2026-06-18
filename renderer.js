@@ -238,8 +238,16 @@ async function unlinkAccount(email) {
 }
 
 // Settings Modal controls
-function openSettingsModal() {
-  loadConfig(); // Refresh config from file system
+async function openSettingsModal() {
+  await loadConfig(); // Refresh config from file system
+  if (window.api && window.api.getStartupStatus) {
+    try {
+      const startupEnabled = await window.api.getStartupStatus();
+      document.getElementById('input-startup').checked = !!startupEnabled;
+    } catch (err) {
+      console.error('Failed to fetch startup status:', err);
+    }
+  }
   settingsModal.classList.add('active');
 }
 
@@ -273,6 +281,10 @@ if (btnSaveSettings) {
       if (window.api && window.api.saveConfig) {
         const result = await window.api.saveConfig(newConfig);
         if (result.success) {
+          if (window.api.setStartupStatus) {
+            const startupEnabled = document.getElementById('input-startup').checked;
+            await window.api.setStartupStatus(startupEnabled);
+          }
           closeSettingsModal();
           
           // Update status indicator to reloading
