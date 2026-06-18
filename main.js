@@ -179,15 +179,29 @@ function createTray() {
 
   const contextMenu = Menu.buildFromTemplate([
     {
-      label: 'Show G-Stack UI',
+      label: 'Show',
       click: () => {
         mainWindow.show();
       }
     },
     {
-      label: 'Open WebDAV (localhost:8080)',
+      label: 'Mount & Open Drive',
       click: () => {
-        shell.openExternal('http://localhost:8080');
+        let username = 'admin';
+        let addr = 'localhost:8080';
+        let password = 'admin';
+        try {
+          if (fs.existsSync(configPath)) {
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            username = config.username || username;
+            addr = config.addr || addr;
+            password = config.password || password;
+          }
+        } catch (err) {
+          console.error('Failed to read config for tray mount:', err);
+        }
+        const mountUrl = `dav://${username}:${password}@${addr}/G-Stack/`;
+        openExternalUrl(mountUrl);
       }
     },
     { type: 'separator' },
