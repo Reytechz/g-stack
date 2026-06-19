@@ -180,6 +180,10 @@ func (fs *GStackFS) OpenFile(ctx context.Context, name string, flag int, perm os
 		if err != nil {
 			return nil, fmt.Errorf("failed to open local cached file: %w", err)
 		}
+		stat, err := f.Stat()
+		if err == nil {
+			node.Size = stat.Size()
+		}
 		return &localCachedFile{
 			File: f,
 			node: *node,
@@ -286,6 +290,18 @@ func (fs *GStackFS) Stat(ctx context.Context, name string) (os.FileInfo, error) 
 	if node == nil {
 		return nil, os.ErrNotExist
 	}
+
+	// If this node is currently uploading in the background, report its local temp file size
+	fs.mu.RLock()
+	task, isUploading := fs.uploading[node.ID]
+	fs.mu.RUnlock()
+	if isUploading {
+		stat, err := os.Stat(task.tempPath)
+		if err == nil {
+			node.Size = stat.Size()
+		}
+	}
+
 	return VirtualFileInfo{node: *node}, nil
 }
 
@@ -339,6 +355,18 @@ func (d *virtualDir) Readdir(count int) ([]os.FileInfo, error) {
 		if err != nil {
 			return nil, err
 		}
+		// If any child is currently uploading in the background, report its local temp file size
+		d.fs.mu.RLock()
+		for i := range children {
+			if task, ok := d.fs.uploading[children[i].ID]; ok {
+				stat, err := os.Stat(task.tempPath)
+				if err == nil {
+					children[i].Size = stat.Size()
+				}
+			}
+		}
+		d.fs.mu.RUnlock()
+
 		d.children = children
 		d.readOffset = 0
 		d.initialized = true
@@ -709,6 +737,10 @@ type localCachedFile struct {
 }
 
 func (l *localCachedFile) Stat() (os.FileInfo, error) {
+	stat, err := l.File.Stat()
+	if err == nil {
+		l.node.Size = stat.Size()
+	}
 	return VirtualFileInfo{node: l.node}, nil
 }
 
