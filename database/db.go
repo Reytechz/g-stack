@@ -41,7 +41,11 @@ type DB struct {
 }
 
 func InitDB(dbPath string) (*DB, error) {
-	conn, err := sql.Open("sqlite", dbPath)
+	dsn := dbPath
+	if !strings.Contains(dsn, "?") {
+		dsn += "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)"
+	}
+	conn, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open sqlite db: %w", err)
 	}
