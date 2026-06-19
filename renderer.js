@@ -124,12 +124,19 @@ async function fetchStatus() {
     // Update accounts list
     renderAccounts(data.accounts || []);
     
+    // Update active background uploads progress
+    await fetchActiveUploads();
+    
     const now = new Date();
     refreshTimeText.textContent = `Synced at ${now.toLocaleTimeString()}`;
     
   } catch (error) {
     console.error('Failed to fetch status:', error);
     
+    // Hide active uploads card if daemon is offline
+    const uploadsCard = document.getElementById('uploads-card');
+    if (uploadsCard) uploadsCard.style.display = 'none';
+
     // Show offline status unless we are currently saving/rebooting
     if (btnSaveSettings && btnSaveSettings.disabled) {
       daemonStatusText.textContent = 'Rebooting Daemon...';
@@ -375,6 +382,58 @@ if (btnTogglePasswordView) {
         </svg>
       `;
     }
+  });
+}
+
+// Fetch active uploads from Go VFS engine
+async function fetchActiveUploads() {
+  try {
+    const response = await fetch(`http://${appConfig.addr}/uploads`);
+    if (!response.ok) throw new Error('Failed to fetch uploads progress');
+    
+    const uploads = await response.json();
+    renderUploads(uploads || []);
+  } catch (err) {
+    console.error('Failed to fetch active uploads:', err);
+  }
+}
+
+// Render active uploads list
+function renderUploads(uploads) {
+  const uploadsCard = document.getElementById('uploads-card');
+  const uploadsCountText = document.getElementById('uploads-count');
+  const uploadsListContainer = document.getElementById('uploads-list-container');
+  
+  if (!uploadsCard || !uploadsCountText || !uploadsListContainer) return;
+  
+  if (uploads.length === 0) {
+    uploadsCard.style.display = 'none';
+    return;
+  }
+  
+  uploadsCard.style.display = 'flex';
+  uploadsCountText.textContent = `${uploads.length} Uploading`;
+  
+  uploadsListContainer.innerHTML = '';
+  
+  uploads.forEach(upload => {
+    const percent = upload.total_size > 0 ? Math.round((upload.uploaded_size / upload.total_size) * 100) : 0;
+    
+    const item = document.createElement('div');
+    item.className = 'upload-item';
+    item.innerHTML = `
+      <div class="upload-meta">
+        <span class="upload-filename" title="${upload.name}">${upload.name}</span>
+        <span class="upload-stats">${formatBytes(upload.uploaded_size)} / ${formatBytes(upload.total_size)}</span>
+      </div>
+      <div class="upload-progress-wrapper">
+        <div class="upload-progress-bar-bg">
+          <div class="upload-progress-bar-fill" style="width: ${percent}%"></div>
+        </div>
+        <span class="upload-percentage">${percent}%</span>
+      </div>
+    `;
+    uploadsListContainer.appendChild(item);
   });
 }
 

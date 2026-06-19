@@ -46,6 +46,9 @@ func (s *WebDAVServer) Start(addr string) error {
 	// Status dashboard API
 	mux.HandleFunc("/status", s.handleStatus)
 
+	// Background uploads progress API
+	mux.HandleFunc("/uploads", s.handleUploads)
+
 	// Unlink account API
 	mux.HandleFunc("/accounts/delete", s.handleAccountDelete)
 
@@ -231,5 +234,19 @@ func (s *WebDAVServer) handleAccountDelete(w http.ResponseWriter, r *http.Reques
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Account unlinked successfully"))
+}
+
+func (s *WebDAVServer) handleUploads(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", "*")
+	w.Header().Set("Content-Type", "application/json")
+
+	s.fs.mu.RLock()
+	activeUploads := make([]uploadTask, 0, len(s.fs.uploading))
+	for _, task := range s.fs.uploading {
+		activeUploads = append(activeUploads, task)
+	}
+	s.fs.mu.RUnlock()
+
+	json.NewEncoder(w).Encode(activeUploads)
 }
 

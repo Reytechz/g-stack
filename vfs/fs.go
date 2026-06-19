@@ -21,8 +21,11 @@ import (
 const ChunkSize = 10 * 1024 * 1024 // 10 MB per chunk
 
 type uploadTask struct {
-	tempPath string
-	cancel   context.CancelFunc
+	Name         string             `json:"name"`
+	tempPath     string             `json:"-"`
+	TotalSize    int64              `json:"total_size"`
+	UploadedSize int64              `json:"uploaded_size"`
+	cancel       context.CancelFunc `json:"-"`
 }
 
 type GStackFS struct {
@@ -608,8 +611,11 @@ func (w *virtualWritableFile) Close() error {
 
 	w.fs.mu.Lock()
 	w.fs.uploading[w.node.ID] = uploadTask{
-		tempPath: w.tempPath,
-		cancel:   cancel,
+		Name:         w.node.Name,
+		tempPath:     w.tempPath,
+		TotalSize:    totalSize,
+		UploadedSize: 0,
+		cancel:       cancel,
 	}
 	w.fs.mu.Unlock()
 
@@ -720,6 +726,14 @@ func (fs *GStackFS) backgroundUpload(ctx context.Context, node *database.Virtual
 
 		currentOffset += chunkBytesToRead
 		chunkIndex++
+
+		// Update uploaded size for progress tracking
+		fs.mu.Lock()
+		if task, ok := fs.uploading[node.ID]; ok {
+			task.UploadedSize = currentOffset
+			fs.uploading[node.ID] = task
+		}
+		fs.mu.Unlock()
 	}
 
 	// Update node size
