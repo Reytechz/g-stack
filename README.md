@@ -27,13 +27,14 @@
 
 ```mermaid
 graph TD
-    A[Electron Frontend GUI] -- "IPC / REST API (port 8080)" --> B[Go VFS Backend Daemon]
-    B -- "Reads/Writes Metadata" --> C[(Local SQLite db)]
-    B -- "Exposes WebDAV Server" --> D[Linux File Manager (Dolphin/Nautilus)]
-    B -- "Uploads/Downloads Chunks" --> E[Google Drive Account 1]
-    B -- "Uploads/Downloads Chunks" --> F[Google Drive Account 2]
-    B -- "Uploads/Downloads Chunks" --> G[Google Drive Account n]
+    A["Electron Frontend GUI"] -- "IPC / REST API (port 8080)" --> B["Go VFS Backend Daemon"]
+    B -- "Reads/Writes Metadata" --> C[("Local SQLite db")]
+    B -- "Exposes WebDAV Server" --> D["Linux File Manager (Dolphin/Nautilus)"]
+    B -- "Uploads/Downloads Chunks" --> E["Google Drive Account 1"]
+    B -- "Uploads/Downloads Chunks" --> F["Google Drive Account 2"]
+    B -- "Uploads/Downloads Chunks" --> G["Google Drive Account n"]
 ```
+
 
 ---
 
