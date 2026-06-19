@@ -135,17 +135,29 @@ function createWindow() {
 }
 
 function setupAutoUpdater() {
+  // Use console as the logger so we see electron-updater logs in stdout/stderr
+  autoUpdater.logger = console;
+
   // Check for updates on startup
-  console.log('[Updater] Checking for updates...');
+  console.log('[Updater] Initial check for updates...');
   autoUpdater.checkForUpdatesAndNotify();
 
   // Check for updates every 2 hours
   setInterval(() => {
+    console.log('[Updater] Checking for updates (periodic)...');
     autoUpdater.checkForUpdatesAndNotify();
   }, 2 * 60 * 60 * 1000);
 
-  autoUpdater.on('update-available', () => {
-    console.log('[Updater] Update available.');
+  autoUpdater.on('checking-for-update', () => {
+    console.log('[Updater] Checking for updates on GitHub...');
+  });
+
+  autoUpdater.on('update-available', (info) => {
+    console.log('[Updater] Update available. Version:', info.version);
+  });
+
+  autoUpdater.on('update-not-available', () => {
+    console.log('[Updater] Update not available. Already on the latest version.');
   });
 
   autoUpdater.on('update-downloaded', (info) => {
@@ -167,7 +179,7 @@ function setupAutoUpdater() {
   });
 
   autoUpdater.on('error', (err) => {
-    console.error('[Updater] Error checking for updates:', err);
+    console.error('[Updater] Error during update check:', err);
   });
 }
 

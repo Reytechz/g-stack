@@ -1,6 +1,6 @@
 {
   "name": "g-stack",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "G-Stack Multi-Account Cloud Storage Pooler GUI",
   "author": "almerhal76 <almerhal76@gmail.com>",
   "main": "main.js",
@@ -24,7 +24,7 @@
     },
     "publish": {
       "provider": "github",
-      "owner": "almerhal76",
+      "owner": "Reytechz",
       "repo": "g-stack"
     },
     "files": [
