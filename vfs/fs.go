@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	"io"
+	"log"
 	"os"
 	"path/filepath"
 	"sync"
@@ -19,10 +20,17 @@ import (
 
 const ChunkSize = 10 * 1024 * 1024 // 10 MB per chunk
 
+type uploadTask struct {
+	tempPath string
+	cancel   context.CancelFunc
+}
+
 type GStackFS struct {
 	db           *database.DB
 	driveManager *drive.DriveManager
 	tempDir      string
+	mu           sync.RWMutex
+	uploading    map[string]uploadTask // nodeID -> uploadTask
 }
 
 func NewGStackFS(db *database.DB, dm *drive.DriveManager, tempDir string) (*GStackFS, error) {
@@ -33,6 +41,7 @@ func NewGStackFS(db *database.DB, dm *drive.DriveManager, tempDir string) (*GSta
 		db:           db,
 		driveManager: dm,
 		tempDir:      tempDir,
+		uploading:    make(map[string]uploadTask),
 	}, nil
 }
 
@@ -90,6 +99,17 @@ func (fs *GStackFS) OpenFile(ctx context.Context, name string, flag int, perm os
 		}
 		if parent == nil {
 			return nil, os.ErrNotExist
+		}
+
+		if node != nil {
+			// If there's an active background upload for this node, cancel it.
+			fs.mu.Lock()
+			if task, ok := fs.uploading[node.ID]; ok {
+				task.cancel()
+				delete(fs.uploading, node.ID)
+				_ = os.Remove(task.tempPath)
+			}
+			fs.mu.Unlock()
 		}
 
 		if node == nil {
@@ -150,6 +170,22 @@ func (fs *GStackFS) OpenFile(ctx context.Context, name string, flag int, perm os
 		}, nil
 	}
 
+	// Check if this file is currently uploading in the background
+	fs.mu.RLock()
+	task, isUploading := fs.uploading[node.ID]
+	fs.mu.RUnlock()
+
+	if isUploading {
+		f, err := os.Open(task.tempPath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to open local cached file: %w", err)
+		}
+		return &localCachedFile{
+			File: f,
+			node: *node,
+		}, nil
+	}
+
 	return &virtualFile{
 		fs:     fs,
 		node:   *node,
@@ -181,6 +217,15 @@ func (fs *GStackFS) RemoveAll(ctx context.Context, name string) error {
 				}
 			}
 		} else {
+			// If there's an active background upload for this node, cancel it.
+			fs.mu.Lock()
+			if task, ok := fs.uploading[n.ID]; ok {
+				task.cancel()
+				delete(fs.uploading, n.ID)
+				_ = os.Remove(task.tempPath)
+			}
+			fs.mu.Unlock()
+
 			// Get physical file mappings
 			mappings, err := fs.db.GetFileMappings(n.ID)
 			if err == nil {
@@ -512,35 +557,65 @@ func (w *virtualWritableFile) Close() error {
 	}
 	w.isClosed = true
 
-	// Sync local temp file
+	// Sync and close local temp file so it is flushed to disk
 	_ = w.tempFile.Sync()
-	_, _ = w.tempFile.Seek(0, io.SeekStart)
-
-	// Clean up local temp file on return
-	defer func() {
-		w.tempFile.Close()
-		_ = os.Remove(w.tempPath)
-	}()
+	_ = w.tempFile.Close()
 
 	// Get file size
-	stat, err := w.tempFile.Stat()
+	stat, err := os.Stat(w.tempPath)
 	if err != nil {
+		_ = os.Remove(w.tempPath)
 		return fmt.Errorf("failed to stat temp file: %w", err)
 	}
 	totalSize := stat.Size()
 
 	if totalSize == 0 {
-		// Empty file. Just update node in DB.
+		// Empty file. Just update node in DB and clean up.
+		_ = os.Remove(w.tempPath)
 		return w.fs.db.UpdateNodeSize(w.node.ID, 0)
 	}
 
-	// Fetch all connected Google accounts to distribute chunks
-	accounts, err := w.fs.db.GetAccounts()
+	// Start background upload
+	bgCtx, cancel := context.WithCancel(context.Background())
+
+	w.fs.mu.Lock()
+	w.fs.uploading[w.node.ID] = uploadTask{
+		tempPath: w.tempPath,
+		cancel:   cancel,
+	}
+	w.fs.mu.Unlock()
+
+	go w.fs.backgroundUpload(bgCtx, w.node, w.tempPath, totalSize)
+
+	return nil
+}
+
+func (fs *GStackFS) backgroundUpload(ctx context.Context, node *database.VirtualNode, tempPath string, totalSize int64) {
+	// Clean up on exit
+	defer func() {
+		fs.mu.Lock()
+		delete(fs.uploading, node.ID)
+		fs.mu.Unlock()
+		_ = os.Remove(tempPath)
+	}()
+
+	// Open the temp file for reading
+	file, err := os.Open(tempPath)
 	if err != nil {
-		return fmt.Errorf("failed to list target accounts: %w", err)
+		log.Printf("[Upload] Failed to open temp file %s for background upload: %v", tempPath, err)
+		return
+	}
+	defer file.Close()
+
+	// Fetch all connected Google accounts to distribute chunks
+	accounts, err := fs.db.GetAccounts()
+	if err != nil {
+		log.Printf("[Upload] Failed to list target accounts for background upload of %s: %v", node.Name, err)
+		return
 	}
 	if len(accounts) == 0 {
-		return fmt.Errorf("cannot upload file: no connected Google Drive accounts")
+		log.Printf("[Upload] Failed to background upload %s: no connected Google Drive accounts", node.Name)
+		return
 	}
 
 	// Perform Chunked Upload
@@ -548,6 +623,14 @@ func (w *virtualWritableFile) Close() error {
 	chunkIndex := 0
 
 	for currentOffset < totalSize {
+		// Check for context cancellation
+		select {
+		case <-ctx.Done():
+			log.Printf("[Upload] Background upload of %s was canceled/aborted", node.Name)
+			return
+		default:
+		}
+
 		chunkBytesToRead := int64(ChunkSize)
 		if currentOffset+chunkBytesToRead > totalSize {
 			chunkBytesToRead = totalSize - currentOffset
@@ -566,48 +649,71 @@ func (w *virtualWritableFile) Close() error {
 		}
 
 		if bestAccount == nil || maxFreeSpace < chunkBytesToRead {
-			return fmt.Errorf("out of space: aggregate storage is full")
+			log.Printf("[Upload] Failed to background upload %s: aggregate storage is full", node.Name)
+			return
 		}
 
-		// Read the chunk bytes
-		chunkReader := io.LimitReader(w.tempFile, chunkBytesToRead)
+		// Use io.NewSectionReader to provide a seekable reader with a known size!
+		chunkReader := io.NewSectionReader(file, currentOffset, chunkBytesToRead)
 
-		client, err := w.fs.driveManager.GetClient(bestAccount.ID)
+		client, err := fs.driveManager.GetClient(bestAccount.ID)
 		if err != nil {
-			return fmt.Errorf("failed to get client for account %s: %w", bestAccount.ID, err)
+			log.Printf("[Upload] Failed to get client for account %s during upload of %s: %v", bestAccount.ID, node.Name, err)
+			return
 		}
 
-		chunkName := fmt.Sprintf("chunk_%s_%d", w.node.ID, chunkIndex)
-		googleFileID, err := client.UploadChunk(w.ctx, chunkName, chunkReader)
+		chunkName := fmt.Sprintf("chunk_%s_%d", node.ID, chunkIndex)
+		googleFileID, err := client.UploadChunk(ctx, chunkName, chunkReader)
 		if err != nil {
-			return fmt.Errorf("failed to upload chunk %d to %s: %w", chunkIndex, bestAccount.ID, err)
+			log.Printf("[Upload] Failed to upload chunk %d of %s to %s: %v", chunkIndex, node.Name, bestAccount.ID, err)
+			return
 		}
 
 		// Store mapping in database
 		mapping := database.FileMapping{
 			ID:              uuid.New().String(),
-			NodeID:          w.node.ID,
+			NodeID:          node.ID,
 			ChunkIndex:      chunkIndex,
 			GoogleAccountID: bestAccount.ID,
 			GoogleFileID:    googleFileID,
 			ChunkSize:       chunkBytesToRead,
 		}
 
-		if err := w.fs.db.AddFileMapping(mapping); err != nil {
+		if err := fs.db.AddFileMapping(mapping); err != nil {
 			// Try to clean up from Google Drive on failure
-			_ = client.DeleteFile(w.ctx, googleFileID)
-			return fmt.Errorf("failed to save chunk metadata: %w", err)
+			_ = client.DeleteFile(ctx, googleFileID)
+			log.Printf("[Upload] Failed to save chunk metadata for %s: %v", node.Name, err)
+			return
 		}
 
 		// Update database account usage
 		bestAccount.UsedSpace += chunkBytesToRead
-		_ = w.fs.db.SaveAccount(*bestAccount)
+		_ = fs.db.SaveAccount(*bestAccount)
 
 		currentOffset += chunkBytesToRead
 		chunkIndex++
 	}
 
 	// Update node size
-	return w.fs.db.UpdateNodeSize(w.node.ID, totalSize)
+	if err := fs.db.UpdateNodeSize(node.ID, totalSize); err != nil {
+		log.Printf("[Upload] Failed to update node size in DB for %s: %v", node.Name, err)
+	} else {
+		log.Printf("[Upload] Successfully uploaded %s (%d bytes) in background", node.Name, totalSize)
+	}
 }
+
+// localCachedFile wraps *os.File to serve read requests from local cached file
+type localCachedFile struct {
+	*os.File
+	node database.VirtualNode
+}
+
+func (l *localCachedFile) Stat() (os.FileInfo, error) {
+	return VirtualFileInfo{node: l.node}, nil
+}
+
+func (l *localCachedFile) Readdir(count int) ([]os.FileInfo, error) {
+	return nil, fmt.Errorf("not a directory")
+}
+
 
