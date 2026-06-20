@@ -133,9 +133,18 @@ async function fetchStatus() {
   } catch (error) {
     console.error('Failed to fetch status:', error);
     
-    // Hide active uploads card if daemon is offline
-    const uploadsCard = document.getElementById('uploads-card');
-    if (uploadsCard) uploadsCard.style.display = 'none';
+    // Show offline status on active uploads
+    const uploadsListContainer = document.getElementById('uploads-list-container');
+    const uploadsCountText = document.getElementById('uploads-count');
+    if (uploadsListContainer && uploadsCountText) {
+      uploadsCountText.textContent = 'Offline';
+      uploadsListContainer.innerHTML = `
+        <div class="empty-state">
+          <p style="color: var(--color-red)">Connection offline</p>
+          <p class="sub-empty">Unable to retrieve uploads status from daemon.</p>
+        </div>
+      `;
+    }
 
     // Show offline status unless we are currently saving/rebooting
     if (btnSaveSettings && btnSaveSettings.disabled) {
@@ -395,6 +404,18 @@ async function fetchActiveUploads() {
     renderUploads(uploads || []);
   } catch (err) {
     console.error('Failed to fetch active uploads:', err);
+    // Show offline status on active uploads
+    const uploadsListContainer = document.getElementById('uploads-list-container');
+    const uploadsCountText = document.getElementById('uploads-count');
+    if (uploadsListContainer && uploadsCountText) {
+      uploadsCountText.textContent = 'Offline';
+      uploadsListContainer.innerHTML = `
+        <div class="empty-state">
+          <p style="color: var(--color-red)">Connection offline</p>
+          <p class="sub-empty">Unable to retrieve uploads status from daemon.</p>
+        </div>
+      `;
+    }
   }
 }
 
@@ -406,12 +427,20 @@ function renderUploads(uploads) {
   
   if (!uploadsCard || !uploadsCountText || !uploadsListContainer) return;
   
+  // Make sure card is visible
+  uploadsCard.style.display = 'flex';
+  
   if (uploads.length === 0) {
-    uploadsCard.style.display = 'none';
+    uploadsCountText.textContent = '0 Active';
+    uploadsListContainer.innerHTML = `
+      <div class="empty-state">
+        <p>No active uploads</p>
+        <p class="sub-empty">Files copied to your mounted drive will appear here while uploading.</p>
+      </div>
+    `;
     return;
   }
   
-  uploadsCard.style.display = 'flex';
   uploadsCountText.textContent = `${uploads.length} Uploading`;
   
   uploadsListContainer.innerHTML = '';
