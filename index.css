@@ -227,18 +227,21 @@ body {
   text-shadow: 0 0 8px rgba(0, 230, 118, 0.25);
 }
 
-/* Right Column Layout */
-.right-column {
+/* Accounts & Controls Column (Stacked Column on Far Right) */
+.accounts-controls-column {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
+  flex: 1 1 0%;
+  min-width: 280px;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Connected Accounts Card */
 .accounts-card {
   flex: 1 1 0%;
-  min-width: 240px;
-  height: 100%;
+  min-height: 0; /* Allows the card content to shrink and scroll vertically */
 }
 
 .card-header {
@@ -378,9 +381,7 @@ body {
 
 /* Controls Panel */
 .actions-card {
-  flex: 1 1 0%;
-  min-width: 240px;
-  height: 100%;
+  flex: 0 0 auto;
 }
 
 .actions-grid {
