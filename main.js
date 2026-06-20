@@ -92,11 +92,11 @@ function startBackend() {
 function createWindow() {
   const iconPath = path.join(__dirname, 'icon.png');
   mainWindow = new BrowserWindow({
-    width: 820,
-    height: 700,
+    width: 1100,
+    height: 540,
     resizable: true,
-    minWidth: 820,
-    minHeight: 650,
+    minWidth: 900,
+    minHeight: 500,
     frame: true, // standard window
     webPreferences: {
       nodeIntegration: false,

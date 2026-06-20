@@ -111,10 +111,12 @@ body {
 
 /* Dashboard Grid Layout */
 .dashboard-grid {
-  display: grid;
-  grid-template-columns: 310px 1fr;
-  gap: 20px;
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
   flex: 1;
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Card Styling (Glassmorphism) */
@@ -142,6 +144,7 @@ body {
 
 /* Pool Storage Section (Left Column) */
 .pool-card {
+  flex: 0 0 250px;
   align-items: center;
   justify-content: space-between;
   box-shadow: var(--glow-shadow);
@@ -234,7 +237,8 @@ body {
 /* Connected Accounts Card */
 .accounts-card {
   flex: 1 1 0%;
-  min-height: 120px;
+  min-width: 240px;
+  height: 100%;
 }
 
 .card-header {
@@ -264,6 +268,7 @@ body {
   gap: 10px;
   overflow-y: auto;
   padding-right: 5px;
+  flex: 1;
 }
 
 /* Custom Scrollbar */
@@ -373,14 +378,16 @@ body {
 
 /* Controls Panel */
 .actions-card {
-  flex: 0 0 auto;
+  flex: 1 1 0%;
+  min-width: 240px;
+  height: 100%;
 }
 
 .actions-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 14px;
 }
 
 .btn {
@@ -449,13 +456,18 @@ body {
   word-break: break-all;
 }
 
-.info-creds {
+.info-creds-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   font-size: 11px;
   color: var(--text-muted);
-  margin-top: 2px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.03);
+  padding-top: 4px;
 }
 
-.info-creds strong {
+.info-creds-row strong {
   color: var(--text-main);
 }
 
@@ -770,7 +782,8 @@ input:checked + .slider:before {
 /* Active Uploads Card Styles */
 .uploads-card {
   flex: 1 1 0%;
-  min-height: 120px;
+  min-width: 240px;
+  height: 100%;
 }
 
 .badge-glow {
@@ -787,6 +800,7 @@ input:checked + .slider:before {
   gap: 10px;
   overflow-y: auto;
   padding-right: 5px;
+  flex: 1;
 }
 
 .uploads-list::-webkit-scrollbar {
