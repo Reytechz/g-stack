@@ -95,8 +95,8 @@ function createWindow() {
     width: 1100,
     height: 540,
     resizable: true,
-    minWidth: 900,
-    minHeight: 500,
+    minWidth: 360,
+    minHeight: 300,
     frame: true, // standard window
     webPreferences: {
       nodeIntegration: false,
