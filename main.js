@@ -93,8 +93,10 @@ function createWindow() {
   const iconPath = path.join(__dirname, 'icon.png');
   mainWindow = new BrowserWindow({
     width: 820,
-    height: 650,
-    resizable: false,
+    height: 700,
+    resizable: true,
+    minWidth: 820,
+    minHeight: 650,
     frame: true, // standard window
     webPreferences: {
       nodeIntegration: false,
