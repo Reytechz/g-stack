@@ -305,11 +305,15 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 0; /* allows flex item to shrink below content width */
 }
 
 .acc-email {
   font-size: 13px;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .acc-storage-text {
@@ -881,7 +885,7 @@ input:checked + .slider:before {
 }
 
 /* Responsive design for smaller screens / window widths */
-@media (max-width: 850px) {
+@media (max-width: 1000px) {
   body {
     overflow-y: auto !important;
     height: auto !important;
