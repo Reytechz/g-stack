@@ -3,6 +3,7 @@ package vfs
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 
@@ -72,9 +73,14 @@ func (s *WebDAVServer) handleWebDAV(w http.ResponseWriter, r *http.Request) {
 	if s.username != "" && s.password != "" {
 		u, p, ok := r.BasicAuth()
 		if !ok || u != s.username || p != s.password {
+			// Consume request body to prevent "connection reset" / "broken pipe" errors 
+			// in clients like KDE Dolphin (KIO) when uploading files larger than the TCP socket buffer.
+			if r.Body != nil {
+				_, _ = io.Copy(io.Discard, r.Body)
+			}
 			w.Header().Set("WWW-Authenticate", `Basic realm="G-Stack WebDAV"`)
 			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte("Unauthorized"))
+			_, _ = w.Write([]byte("Unauthorized"))
 			return
 		}
 	}

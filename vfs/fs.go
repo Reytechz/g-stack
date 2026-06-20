@@ -89,6 +89,7 @@ func (fs *GStackFS) OpenFile(ctx context.Context, name string, flag int, perm os
 	cleanName := filepath.Clean(name)
 	node, err := fs.db.ResolvePath(cleanName)
 	if err != nil {
+		log.Printf("[VFS Err] OpenFile ResolvePath failed for %s: %v", cleanName, err)
 		return nil, err
 	}
 
@@ -98,9 +99,11 @@ func (fs *GStackFS) OpenFile(ctx context.Context, name string, flag int, perm os
 		parentPath, fileName := filepath.Split(cleanName)
 		parent, err := fs.db.ResolvePath(parentPath)
 		if err != nil {
+			log.Printf("[VFS Err] OpenFile ResolvePath for parent %s failed: %v", parentPath, err)
 			return nil, err
 		}
 		if parent == nil {
+			log.Printf("[VFS Err] OpenFile: parent not found for path %s (parentPath: %s)", cleanName, parentPath)
 			return nil, os.ErrNotExist
 		}
 
@@ -108,6 +111,7 @@ func (fs *GStackFS) OpenFile(ctx context.Context, name string, flag int, perm os
 			// If there's an active background upload for this node, cancel it.
 			fs.mu.Lock()
 			if task, ok := fs.uploading[node.ID]; ok {
+				log.Printf("[VFS] OpenFile write: canceling active background upload for node ID %s", node.ID)
 				task.cancel()
 				delete(fs.uploading, node.ID)
 				_ = os.Remove(task.tempPath)
@@ -127,6 +131,7 @@ func (fs *GStackFS) OpenFile(ctx context.Context, name string, flag int, perm os
 				UpdatedAt: time.Now(),
 			}
 			if err := fs.db.CreateNode(*node); err != nil {
+				log.Printf("[VFS Err] OpenFile CreateNode failed for %s: %v", fileName, err)
 				return nil, err
 			}
 		} else if flag&os.O_TRUNC != 0 {
@@ -149,6 +154,7 @@ func (fs *GStackFS) OpenFile(ctx context.Context, name string, flag int, perm os
 		tempPath := filepath.Join(fs.tempDir, uuid.New().String())
 		tempFile, err := os.OpenFile(tempPath, os.O_CREATE|os.O_RDWR, 0666)
 		if err != nil {
+			log.Printf("[VFS Err] OpenFile failed to create local temp file at %s: %v", tempPath, err)
 			return nil, fmt.Errorf("failed to create local temp file: %w", err)
 		}
 
@@ -162,6 +168,7 @@ func (fs *GStackFS) OpenFile(ctx context.Context, name string, flag int, perm os
 	}
 
 	if node == nil {
+		log.Printf("[VFS Err] OpenFile read failed: node not found for %s", cleanName)
 		return nil, os.ErrNotExist
 	}
 
